@@ -91,7 +91,7 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 		else:
 			return ret["ts"], ret["channel"]
 
-	def handle(self):
+	def handle(self):  # pylint:disable=too-many-statements
 		log.debug("Received FastAGI request for client %s:%s", self.client_address[0], self.client_address[1])
 		try:
 			devnull = open(os.devnull, 'w')
