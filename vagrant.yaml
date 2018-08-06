@@ -1,0 +1,4 @@
+---
+vm:
+  box: 'geerlingguy/centos7'
+sync: default
