@@ -1,0 +1,13 @@
+[Unit]
+Description=Slack Asterisk PBX Call Notifier
+After=asterisk.service
+Wants=asterisk.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/slack-asterisk.token
+ExecStart=/usr/bin/slack-asterisk
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
