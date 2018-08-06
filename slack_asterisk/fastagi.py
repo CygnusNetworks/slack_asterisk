@@ -15,33 +15,40 @@ from . import __version__
 
 log = logging.getLogger("slack_asterisk")
 log.setLevel(logging.DEBUG)
-ch = logging.StreamHandler()
+ch = logging.StreamHandler(sys.stdout)
 log.addHandler(ch)
 
 
 class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMixIn, object):
-	def get_vars(self, agi):
-		vars = dict()
-		vars["callerid_num"] = agi.get_variable('CALLERID(num)')
-		vars["callerid_name"] = agi.get_variable('CALLERID(name)')
-		vars["uniqueid"] = agi.get_variable('UNIQUEID')
-		vars["arg1"] = agi.get_variable('ARG1')
-		vars["dialstatus"] = agi.get_variable('DIALSTATUS')
-		vars["dialedpeername"] = agi.get_variable('DIALEDPEERNAME')
-		vars["dialedpeernumber"] = agi.get_variable('DIALEDPEERNUMBER')
-		vars["dialedtime"] = agi.get_variable("DIALEDTIME")
-		vars["answeredtime"] = agi.get_variable("ANSWEREDTIME")
-		vars["exten"] = agi.get_variable('EXTEN')
+	@staticmethod
+	def get_vars(agi):
+		chan_vars = dict()
+		chan_vars["callerid_num"] = agi.get_variable('CALLERID(num)')
+		chan_vars["callerid_name"] = agi.get_variable('CALLERID(name)')
+		chan_vars["uniqueid"] = agi.get_variable('UNIQUEID')
+		chan_vars["arg1"] = agi.get_variable('ARG1')
+		chan_vars["refid"] = agi.get_variable('SLACK_ASTERISK_REFID')
+
+		chan_vars["dialstatus"] = agi.get_variable('DIALSTATUS')
+		chan_vars["dialedpeername"] = agi.get_variable('DIALEDPEERNAME')
+		chan_vars["dialedpeernumber"] = agi.get_variable('DIALEDPEERNUMBER')
+		chan_vars["dialedtime"] = agi.get_variable("DIALEDTIME")
+		chan_vars["answeredtime"] = agi.get_variable("ANSWEREDTIME")
+		chan_vars["exten"] = agi.get_variable('EXTEN')
+		chan_vars["hangupcause"] = agi.get_variable('HANGUPCAUSE')
+
+		chan_vars["type"] = agi.get_variable('SLACK_ASTERISK_TYPE')
+		chan_vars["color"] = agi.get_variable('SLACK_ASTERISK_COLOR')
+
 		to_delete = []
-		for k, v in vars.items():
+		for k, v in chan_vars.items():
 			if len(v) == 0:
 				to_delete.append(k)
 		for entry in to_delete:
-			del vars[entry]
-		return vars
+			del chan_vars[entry]
+		return chan_vars
 
 	def get_formatting(self, msg, msg_data, color="good"):
-		#actions = [dict(type="button", text="Bla", url="http://w359.de")]
 		actions = None
 		title = ""
 		title += msg_data["from_num"]
@@ -56,13 +63,17 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 			footer += " - Dialed for %s" % str(datetime.timedelta(seconds=msg_data["dialedtime"]))
 		if msg_data["answeredtime"] is not None:
 			footer += " - Answered for %s" % str(datetime.timedelta(seconds=msg_data["answeredtime"]))
-		data = dict(color=color, title=title, text=msg, username="Cygnus PBX", icon_emoji=":telephone_receiver:", actions=actions, footer=footer)
+		if msg_data["color"] is not None:
+			color = msg_data["color"]
+		if msg_data["type"] is not None:
+			msg = "%s: %s" % (msg_data["type"], msg)
+		data = dict(color=color, title=title, text=msg, username=self.server.config["username"], icon_emoji=self.server.config["emoji"], actions=actions, footer=footer)
 		return data
 
 	def update_message(self, msg, msg_data, color="good"):
 		data = self.get_formatting(msg, msg_data, color)
 		att = [data]
-		log.debug("Channel update called for channel %s", self.server.slack_channel)
+		log.debug("Channel update called for channel %s", self.server.config["channel"])
 		method = "chat.update"
 		ret = self.server.slack_client.api_call(method, channel=msg_data["channel"], attachments=att, ts=msg_data["ts"])
 		if ret["ok"] is not True:
@@ -71,84 +82,103 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 	def post_message(self, msg, msg_data, color="good"):
 		data = self.get_formatting(msg, msg_data, color)
 		att = [data]
-		log.debug("Channel post called for channel %s", self.server.slack_channel)
+		log.debug("Channel post called for channel %s", self.server.config["channel"])
 		method = "chat.postMessage"
-		ret = self.server.slack_client.api_call(method, channel=self.server.slack_channel, attachments=att)
+		ret = self.server.slack_client.api_call(method, channel=self.server.config["channel"], attachments=att)
 
 		if ret["ok"] is not True:
 			raise RuntimeError("Cannot post message with error %s" % ret["error"])
 		else:
-			return (ret["ts"], ret["channel"])
+			return ret["ts"], ret["channel"]
 
 	def handle(self):
-		sc = self.server.slack_client
 		log.debug("Received FastAGI request for client %s:%s", self.client_address[0], self.client_address[1])
 		try:
 			devnull = open(os.devnull, 'w')
 			agi = asterisk.agi.AGI(self.rfile, self.wfile, devnull)
-			vars = self.get_vars(agi)
-			log.debug("FastAGI request for client %s:%s for %s", self.client_address[0], self.client_address[1], str(vars))
+			channel_vars = self.get_vars(agi)
+			log.debug("FastAGI request for client %s:%s for %s", self.client_address[0], self.client_address[1], str(channel_vars))
 
-			if "arg1" in vars:
+			new_call = False
+			if "arg1" in channel_vars:
 				# case Dial Macro, call completed
-				msg_data = self.server.calls_dict[vars["arg1"]]
+				msg_data = self.server.calls_dict[channel_vars["arg1"]]
 			else:
 				# all other cases
-				if vars["uniqueid"] not in self.server.calls_dict:
-					self.server.calls_dict[vars["uniqueid"]] = dict(ts=None, channel=None, from_num=None, from_name=None, to_num=None, to_name=None, ts_in=datetime.datetime.now(), ts_connected=None, dialedtime=None, answeredtime=None)
-				msg_data = self.server.calls_dict[vars["uniqueid"]]
-				if msg_data["from_num"] is None:
-					msg_data["from_num"] = vars["callerid_num"]
-					msg_data["from_name"] = vars["callerid_name"]
-					msg_data["to_num"] = vars["exten"]
-			if "dialedtime" in vars:
-				msg_data["dialedtime"] = int(vars["dialedtime"])
-			if "answeredtime" in vars:
-				msg_data["answeredtime"] = int(vars["answeredtime"])
+				if channel_vars["uniqueid"] not in self.server.calls_dict:
+					self.server.calls_dict[channel_vars["uniqueid"]] = dict(ts=None, channel=None, from_num=None, from_name=None, to_num=None, to_name=None, ts_in=datetime.datetime.now(), ts_connected=None, dialedtime=None, answeredtime=None, color=None, type=None)
+					msg_data = self.server.calls_dict[channel_vars["uniqueid"]]
+					if msg_data["from_num"] is None:
+						msg_data["from_num"] = channel_vars["callerid_num"]
 
-			if "uniqueid" in vars and "arg1" not in vars and "dialstatus" not in vars:
+					if "callerid_name" in channel_vars:
+						if channel_vars["callerid_name"] != channel_vars["callerid_num"]:
+							msg_data["from_name"] = channel_vars["callerid_name"]
+					else:
+						msg_data["from_name"] = "anonymous"
+					if msg_data["to_num"] is None:
+						msg_data["to_num"] = channel_vars["exten"]
+					agi.set_variable("SLACK_ASTERISK_REFID", channel_vars["uniqueid"])
+					new_call = True
+				else:
+					msg_data = self.server.calls_dict[channel_vars["uniqueid"]]
+
+			if "color" in channel_vars:
+				msg_data["color"] = channel_vars["color"]
+			if "type" in channel_vars:
+				msg_data["type"] = channel_vars["type"]
+
+			if "dialedtime" in channel_vars:
+				msg_data["dialedtime"] = int(channel_vars["dialedtime"])
+			if "answeredtime" in channel_vars:
+				msg_data["answeredtime"] = int(channel_vars["answeredtime"])
+
+			if new_call is True:
 				# this is a new detected call which is not in a macro
-				log.debug("New call detected for uniqueid %s", vars["uniqueid"])
+				log.debug("New call detected for uniqueid %s", channel_vars["uniqueid"])
 				(ts, channel) = self.post_message("Incoming call (ringing)", msg_data)
 				msg_data["ts"] = ts
 				msg_data["channel"] = channel
-
-			elif "arg1" in vars:
-				log.debug("Picked up call detected for uniqueid %s", vars["uniqueid"])
+			elif "arg1" in channel_vars:
+				log.debug("Picked up call detected for uniqueid %s", channel_vars["uniqueid"])
 				# this is a picked up call in a dial M macro
-				msg_data["to_name"] = vars["callerid_name"]
-				msg_data["to_num"] = vars["callerid_num"]
+				msg_data["to_name"] = channel_vars["callerid_name"]
+				msg_data["to_num"] = channel_vars["callerid_num"]
 				self.update_message("Call established", msg_data)
-			elif "dialstatus" in vars:
-				log.debug("finished call detected for uniqueid %s", vars["uniqueid"])
+			elif "dialstatus" in channel_vars:
+				log.debug("finished call detected for uniqueid %s", channel_vars["uniqueid"])
 				# this is a finished call
-				if vars["dialstatus"] == "ANSWER":
+				if channel_vars["dialstatus"] == "ANSWER":
 					text = "Call accepted and finished"
 					color = "good"
-				elif vars["dialstatus"] == "BUSY":
+				elif channel_vars["dialstatus"] == "BUSY":
 					text = "Busy"
 					color = "warning"
-				elif vars["dialstatus"] == "NOANSWER":
+				elif channel_vars["dialstatus"] == "NOANSWER":
 					text = "Not answered"
 					color = "warning"
-				elif vars["dialstatus"] == "CANCEL":
+				elif channel_vars["dialstatus"] == "CANCEL":
 					text = "Canceled"
 					color = "warning"
-				elif vars["dialstatus"] == "CONGESTION":
+				elif channel_vars["dialstatus"] == "CONGESTION":
 					text = "Congestion"
 					color = "#9400D3"
-				elif vars["dialstatus"] == "CHANUNAVAIL":
+				elif channel_vars["dialstatus"] == "CHANUNAVAIL":
 					text = "Channel unavailable"
 					color = "#9400D3"
-				elif vars["dialstatus"] == "DONTCALL":
+				elif channel_vars["dialstatus"] == "DONTCALL":
 					text = "Reject (don't call)"
 					color = "#A9A9A9"
-				elif vars["dialstatus"] == "TORTURE":
+				elif channel_vars["dialstatus"] == "TORTURE":
 					text = "Reject (torture)"
 					color = "#A9A9A9"
 				else:
 					text = "Unknown"
 				self.update_message(text, msg_data, color=color)
+			elif "hangupcause" in channel_vars and int(channel_vars["hangupcause"]) > 0:
+				self.update_message("Call hung up", msg_data)
+			else:
+				self.update_message("Unknown call state", msg_data)
 		except Exception as e:
 			del agi
 			log.exception("Exception occured with mesage %s", e)
@@ -186,12 +216,11 @@ def main():
 	SocketServer.TCPServer.allow_reuse_address = True
 	server = SocketServer.TCPServer((ip, port), SlackAsterisk)
 	server.slack_client = sc
-	server.slack_channel = c["slack"]["channel"]
+	server.config = c["slack"]
 	server.calls_dict = dict()
 
 	log.info("slack_asterisk version %s starting", __version__)
 
-	server.config = c
 	try:
 		log.debug("Server FastAGI on %s:%s", ip, port)
 		server.serve_forever()
