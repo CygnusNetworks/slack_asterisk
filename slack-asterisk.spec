@@ -7,7 +7,7 @@
 %global with_python3 1
 %endif
 
-%define srcname slack-asterisk
+%define srcname slack_asterisk
 %define version 0.10
 %define release 1
 %define sum Slack Asterisk Integration
