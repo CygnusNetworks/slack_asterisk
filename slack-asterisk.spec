@@ -7,10 +7,10 @@
 %global with_python3 1
 %endif
 
-%define srcname ivr
-%define version 2.00
+%define srcname slack-asterisk
+%define version 0.10
 %define release 1
-%define sum Cygnus Networks GmbH %{srcname} package
+%define sum Slack Asterisk Integration
 
 Name:           python-%{srcname}
 Version:        %{version}
@@ -20,13 +20,13 @@ License:        proprietary
 Source0:        python-%{srcname}-%{version}.tar.gz
 
 BuildArch:      noarch
-BuildRequires:  python2-devel, python-setuptools, python2-mock, python-pyrad, python-cygnustoolkit, PyYAML
+BuildRequires:  python2-devel, python-setuptools, python2-mock
 %{?systemd_requires}
 BuildRequires: systemd
 %if 0%{?with_check}
 BuildRequires:  pytest
 %endif # with_check
-Requires:       python-setuptools, python-configobj, python-vobject, python-cygnustoolkit, python-ipaddress, python-jinja2, python2-future, python2-jmespath, python2-futures, PyYAML, python-requests, python-pyst, python-requests, python-boto3, python2-botocore
+Requires:       python-setuptools, python-configobj, python-vobject, python-pyst
 
 %{?python_provide:%python_provide python-%{project}}
 
@@ -65,21 +65,10 @@ Requires:       python3-setuptools
 %install
 %py2_install
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
-mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/ivr
-mkdir -p $RPM_BUILD_ROOT%{_datadir}/ivr/ivrcontrol
-install -p -m 644 ./ivr@.service $RPM_BUILD_ROOT%{_unitdir}/ivr@.service
-install -p -m 644 ./static/dictionary.rfc2865 $RPM_BUILD_ROOT%{_sysconfdir}/ivr/dictionary.rfc2865
-install -p -d -m 755 ./ivrcontrol $RPM_BUILD_ROOT%{_datadir}/ivr/ivrcontrol
-cp -a ./ivrcontrol/* $RPM_BUILD_ROOT%{_datadir}/ivr/ivrcontrol/
+install -p -m 644 ./slack-asterisk.service $RPM_BUILD_ROOT%{_unitdir}/slack-asterisk.service
 %if 0%{?with_python3}
 %py3_install
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
-mkdir -p $RPM_BUILD_ROOT%{_sysconfdir}/ivr
-mkdir -p $RPM_BUILD_ROOT%{_datadir}/ivr/ivrcontrol
-install -p -m 644 ./ivr@.service $RPM_BUILD_ROOT%{_unitdir}/ivr@.service
-install -p -m 644 ./static/dictionary.rfc2865 $RPM_BUILD_ROOT%{_sysconfdir}/ivr/dictionary.rfc2865
-install -p -d -m 755 ./ivrcontrol $RPM_BUILD_ROOT%{_datadir}/ivr/ivrcontrol
-cp -a ./ivrcontrol/* $RPM_BUILD_ROOT%{_datadir}/ivr/ivrcontrol/
 %endif # with_python3
 
 %if 0%{?with_check}
@@ -92,51 +81,30 @@ LANG=en_US.utf8 py.test-%{python3_version} -vv tests
 %endif # with_check
 
 %post
-%systemd_post ivr@.service
+%systemd_post slack-asterisk.service
 
 %preun
-%systemd_preun ivr@.service
+%systemd_preun slack-asterisk.service
 
 %postun
-%systemd_postun_with_restart ivr@.service
+%systemd_postun_with_restart slack-asterisk.service
 
 %files
-%dir %{_datadir}/ivr/ivrcontrol
 %dir %{python2_sitelib}/%{srcname}
-%dir %{python2_sitelib}/%{srcname}/scripts
-%dir %{python2_sitelib}/%{srcname}/modules
-%dir %{python2_sitelib}/%{srcname}/modules/say_provider
-%{_sysconfdir}/ivr/dictionary.rfc2865
-%{_datadir}/ivr/ivrcontrol/*
 %{python2_sitelib}/%{srcname}/*.*
-%{python2_sitelib}/%{srcname}/scripts/*.*
-%{python2_sitelib}/%{srcname}/modules/*.*
-%{python2_sitelib}/%{srcname}/modules/say_provider/*.*
 %{python2_sitelib}/%{srcname}-%{version}-py2.*.egg-info
-%{_unitdir}/ivr@.service
-%{_bindir}/ivr-fastagi-daemon
-%{_bindir}/ivr-public-holiday
+%{_unitdir}/slack-asterisk.service
+%{_bindir}/slack-asterisk
 
 %if 0%{?with_python3}
 %files -n python3-%{project}
-%dir %{_sysconfdir}/ivr
-%dir %{_datadir}/ivr/ivrcontrol
 %dir %{python3_sitelib}/%{srcname}
-%dir %{python3_sitelib}/%{srcname}/scripts
-%dir %{python3_sitelib}/%{srcname}/modules
-%dir %{python3_sitelib}/%{srcname}/modules/say_provider
 %dir %{python3_sitelib}/%{srcname}/__pycache__
-%{_sysconfdir}/ivr/dictionary.rfc2865
-%{_datadir}/ivr/ivrcontrol/*
 %{python3_sitelib}/%{srcname}/*.*
-%{python3_sitelib}/%{srcname}/scripts/*.*
-%{python3_sitelib}/%{srcname}/modules/*.*
-%{python3_sitelib}/%{srcname}/modules/say_provider/*.*
 %{python3_sitelib}/%{srcname}/__pycache__/*.py*
 %{python3_sitelib}/%{srcname}-%{version}-py3.*.egg-info
-%{_unitdir}/ivr@.service
-%{_bindir}/ivr-fastagi-daemon
-%{_bindir}/ivr-public-holiday
+%{_unitdir}/slack-asterisk.service
+%{_bindir}/slack-asterisk
 %endif # with_python3
 
 %changelog

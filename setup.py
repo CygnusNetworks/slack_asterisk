@@ -16,5 +16,5 @@ setup(
 	license='FIXME',
 	entry_points={'console_scripts': ['slack-asterisk = slack_asterisk.fastagi:main']},
 	packages=find_packages(),
-	install_requires=['pyst', 'slackclient']
+	install_requires=['configobj', 'pyst', 'slackclient']
 )

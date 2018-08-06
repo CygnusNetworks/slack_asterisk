@@ -14,7 +14,7 @@ channel = string(min=1, default="telefon_new")
 
 
 class SlackAsteriskConfig(object):  # pylint:disable=too-few-public-methods
-	def __init__(self, configfile="/etc/slack_asterisk.conf"):
+	def __init__(self, configfile="/etc/slack-asterisk.conf"):
 		config_spec_parsed = configobj.ConfigObj(CONFIG_SPEC_SOURCE.format().splitlines(), list_values=False)
 
 		self.config = configobj.ConfigObj(configfile, file_error=False, configspec=config_spec_parsed)
