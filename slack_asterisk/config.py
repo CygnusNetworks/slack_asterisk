@@ -10,6 +10,9 @@ port = integer(min=1024,max=65535,default=4574)
 client_id = string(default="")
 client_secret = string(default="")
 channel = string(min=1, default="telefon_new")
+
+username = string(default="User")
+emoji  = string(default=":telephone_receiver:")
 """
 
 
