@@ -40,6 +40,8 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 		chan_vars["type"] = agi.get_variable('SLACK_ASTERISK_TYPE')
 		chan_vars["color"] = agi.get_variable('SLACK_ASTERISK_COLOR')
 
+		chan_vars["direction"] = agi.get_variable('SLACK_ASTERISK_DIRECTION')
+
 		to_delete = []
 		for k, v in chan_vars.items():
 			if len(v) == 0:
@@ -50,14 +52,11 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 
 	def get_formatting(self, msg, msg_data, color="good"):
 		actions = None
-		title = ""
+		title = "Call from "
 		title += msg_data["from_num"]
 		if msg_data["from_name"] is not None:
 			title += " (%s) " % msg_data["from_name"]
-		title += "=>"
-		title += msg_data["to_num"]
-		if msg_data["to_name"] is not None:
-			title += " (%s) " % msg_data["to_name"]
+
 		footer = "Time: %s" % msg_data["ts_in"].strftime("%A %d.%m.%Y %H:%M:%S")
 		if msg_data["dialedtime"] is not None:
 			footer += " - Dialed for %s" % str(datetime.timedelta(seconds=msg_data["dialedtime"]))
@@ -91,6 +90,29 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 		else:
 			return ret["ts"], ret["channel"]
 
+	def get_destination(self, msg_data):
+		log.debug("get_destination called with msg_data %s", msg_data)
+		dest = "Unknown"
+		if msg_data["to_num"] is not None:
+			dest = msg_data["to_num"]
+		if msg_data["to_name"] is not None:
+			dest += " (%s)" % msg_data["to_name"]
+		log.debug("Destination results in %s", dest)
+		return dest
+
+	def get_dialedpeernumber(self, dp):
+		num = None
+		try:
+			num = dp.split("/")[1]
+		except:
+			log.debug("Error in parsing dialedpeernumber by /")
+		try:
+			num = dp.split("@")[0]
+		except:
+			log.debug("Error in parsing dialedpeernumber by @")
+		log.debug("Dialed peer number %s leads to number %s", dp, num)
+		return num
+
 	def handle(self):  # pylint:disable=too-many-statements
 		log.debug("Received FastAGI request for client %s:%s", self.client_address[0], self.client_address[1])
 		try:
@@ -106,11 +128,14 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 			else:
 				# all other cases
 				if channel_vars["uniqueid"] not in self.server.calls_dict:
-					self.server.calls_dict[channel_vars["uniqueid"]] = dict(ts=None, channel=None, from_num=None, from_name=None, to_num=None, to_name=None, ts_in=datetime.datetime.now(), ts_connected=None, dialedtime=None, answeredtime=None, color=None, type=None)
+					self.server.calls_dict[channel_vars["uniqueid"]] = dict(ts=None, channel=None, from_num=None, from_name=None, to_num=None, to_name=None, ts_in=datetime.datetime.now(), ts_connected=None, dialedtime=None, answeredtime=None, color=None, type=None, direction=None)
 					msg_data = self.server.calls_dict[channel_vars["uniqueid"]]
 					if msg_data["from_num"] is None:
 						msg_data["from_num"] = channel_vars["callerid_num"]
-
+					if msg_data["direction"] is None and "direction" in channel_vars:
+						msg_data["direction"] = channel_vars["direction"]
+					else:
+						msg_data["direction"] = "in"
 					if "callerid_name" in channel_vars:
 						if channel_vars["callerid_name"] != channel_vars["callerid_num"]:
 							msg_data["from_name"] = channel_vars["callerid_name"]
@@ -136,20 +161,33 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 			if new_call is True:
 				# this is a new detected call which is not in a macro
 				log.debug("New call detected for uniqueid %s", channel_vars["uniqueid"])
-				(ts, channel) = self.post_message("Incoming call (ringing)", msg_data)
+				if msg_data["direction"] == "in":
+					text = "Incoming call (ringing)"
+				else:
+					text = "Outgoing call (ringing) to %s" % channel_vars["exten"]
+				(ts, channel) = self.post_message(text, msg_data)
 				msg_data["ts"] = ts
 				msg_data["channel"] = channel
 			elif "arg1" in channel_vars:
 				log.debug("Picked up call detected for uniqueid %s", channel_vars["uniqueid"])
 				# this is a picked up call in a dial M macro
-				msg_data["to_name"] = channel_vars["callerid_name"]
-				msg_data["to_num"] = channel_vars["callerid_num"]
-				self.update_message("Call established", msg_data)
+				if "dialedpeernumber" in channel_vars:
+					log.debug("Found dp number in channel vars %s", channel_vars)
+					msg_data["to_num"] = self.get_dialedpeernumber(channel_vars["dialedpeernumber"])
+				else:
+					log.debug("No dialed peer number in channel vars %s", channel_vars)
+					if "callerid_num" in channel_vars:
+						msg_data["to_num"] = channel_vars["callerid_num"]
+					if "callerid_name" in channel_vars:
+						msg_data["to_name"] = channel_vars["callerid_name"]
+				dest = self.get_destination(msg_data)
+				self.update_message("Call established with %s" % dest, msg_data)
 			elif "dialstatus" in channel_vars:
 				log.debug("finished call detected for uniqueid %s", channel_vars["uniqueid"])
+				dest = self.get_destination(msg_data)
 				# this is a finished call
 				if channel_vars["dialstatus"] == "ANSWER":
-					text = "Call accepted and finished"
+					text = "Call accepted and finished by %s" % dest
 					color = "good"
 				elif channel_vars["dialstatus"] == "BUSY":
 					text = "Busy"
@@ -176,7 +214,8 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 					text = "Unknown"
 				self.update_message(text, msg_data, color=color)
 			elif "hangupcause" in channel_vars and int(channel_vars["hangupcause"]) > 0:
-				self.update_message("Call hung up", msg_data)
+				dest = self.get_destination(msg_data)
+				self.update_message("Call hung up by %s" % dest, msg_data)
 			else:
 				self.update_message("Unknown call state", msg_data)
 		except Exception as e:
