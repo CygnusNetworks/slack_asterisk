@@ -8,7 +8,6 @@ import sys
 
 import asterisk.agi
 import slackclient
-#import phonenumbers
 
 from . import config
 from . import __version__
@@ -52,9 +51,13 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 
 	def get_formatting(self, msg, msg_data, color="good"):
 		actions = None
-		title = "Call from "
+		if msg_data["direction"] == "out":
+			title = "➡️ "
+		else:
+			title = "⬅️ "
+		title += "Call from "
 		title += msg_data["from_num"]
-		if msg_data["from_name"] is not None:
+		if msg_data["from_name"] is not None and msg_data["from_name"] is not "anonymous":
 			title += " (%s) " % msg_data["from_name"]
 
 		footer = "Time: %s" % msg_data["ts_in"].strftime("%A %d.%m.%Y %H:%M:%S")
@@ -96,7 +99,7 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 		if msg_data["to_num"] is not None:
 			dest = msg_data["to_num"]
 		if msg_data["to_name"] is not None:
-			dest += " (%s)" % msg_data["to_name"]
+			dest = " (%s)" % msg_data["to_name"]
 		log.debug("Destination results in %s", dest)
 		return dest
 
@@ -162,9 +165,9 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 				# this is a new detected call which is not in a macro
 				log.debug("New call detected for uniqueid %s", channel_vars["uniqueid"])
 				if msg_data["direction"] == "in":
-					text = "Incoming call (ringing)"
+					text = "📞 Incoming call (ringing)"
 				else:
-					text = "Outgoing call (ringing) to %s" % channel_vars["exten"]
+					text = "📞 Outgoing call (ringing) to %s" % channel_vars["exten"]
 				(ts, channel) = self.post_message(text, msg_data)
 				msg_data["ts"] = ts
 				msg_data["channel"] = channel
@@ -181,37 +184,41 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 					if "callerid_name" in channel_vars:
 						msg_data["to_name"] = channel_vars["callerid_name"]
 				dest = self.get_destination(msg_data)
-				self.update_message("Call established with %s" % dest, msg_data)
+				self.update_message("☑️ Call established with %s" % dest, msg_data)
 			elif "dialstatus" in channel_vars:
 				log.debug("finished call detected for uniqueid %s", channel_vars["uniqueid"])
 				dest = self.get_destination(msg_data)
 				# this is a finished call
 				if channel_vars["dialstatus"] == "ANSWER":
-					text = "Call accepted and finished by %s" % dest
+					text = "✅ Call ended"
 					color = "good"
 				elif channel_vars["dialstatus"] == "BUSY":
-					text = "Busy"
+					text = "⭕ Busy"
 					color = "warning"
 				elif channel_vars["dialstatus"] == "NOANSWER":
-					text = "Not answered"
+					text = "❌️ Not answered"
 					color = "warning"
 				elif channel_vars["dialstatus"] == "CANCEL":
-					text = "Canceled"
+					text = "❌ Canceled"
 					color = "warning"
 				elif channel_vars["dialstatus"] == "CONGESTION":
-					text = "Congestion"
+					text = "❌ Congestion"
 					color = "#9400D3"
 				elif channel_vars["dialstatus"] == "CHANUNAVAIL":
-					text = "Channel unavailable"
+					text = "❌ Channel unavailable"
 					color = "#9400D3"
 				elif channel_vars["dialstatus"] == "DONTCALL":
-					text = "Reject (don't call)"
+					text = "❌ Reject (don't call)"
 					color = "#A9A9A9"
 				elif channel_vars["dialstatus"] == "TORTURE":
-					text = "Reject (torture)"
+					text = "❌ Reject (torture)"
 					color = "#A9A9A9"
 				else:
 					text = "Unknown"
+				if msg_data["direction"] == "in":
+					text += " from %s" % dest
+				else:
+					text += " to %s" % dest
 				self.update_message(text, msg_data, color=color)
 			elif "hangupcause" in channel_vars and int(channel_vars["hangupcause"]) > 0:
 				dest = self.get_destination(msg_data)
