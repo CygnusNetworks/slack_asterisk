@@ -14,7 +14,7 @@ setup(
 	maintainer='Torge Szczepanek',
 	maintainer_email='debian@cygnusnetworks.de',
 	license='FIXME',
-	entry_points={'console_scripts': ['slack-asterisk = slack_asterisk.fastagi:main']},
+	entry_points={'console_scripts': ['slack-asterisk = slack_asterisk.main:main']},
 	packages=find_packages(),
-	install_requires=['configobj', 'pyst', 'slackclient']
+	install_requires=['configobj', 'pyst', 'slackclient', 'falcon']
 )

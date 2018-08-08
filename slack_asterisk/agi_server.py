@@ -1,22 +1,14 @@
 # coding=utf-8
-import argparse
+import SocketServer
 import datetime
 import logging
 import os
-import SocketServer
 import sys
 
 import asterisk.agi
 import slackclient
 
-from . import config
-from . import __version__
-
 log = logging.getLogger("slack_asterisk")
-log.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-log.addHandler(ch)
-
 
 class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMixIn, object):
 	@staticmethod
@@ -93,7 +85,8 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 		else:
 			return ret["ts"], ret["channel"]
 
-	def get_destination(self, msg_data):
+	@staticmethod
+	def get_destination(msg_data):
 		log.debug("get_destination called with msg_data %s", msg_data)
 		dest = "Unknown"
 		if msg_data["to_num"] is not None:
@@ -103,16 +96,17 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 		log.debug("Destination results in %s", dest)
 		return dest
 
-	def get_dialedpeernumber(self, dp):
+	@staticmethod
+	def get_dialedpeernumber(dp):
 		num = None
 		try:
 			num = dp.split("/")[1]
-		except:
-			log.debug("Error in parsing dialedpeernumber by /")
+		except Exception as e:
+			log.debug("Error in parsing dialedpeernumber by / with msg %s", e)
 		try:
 			num = dp.split("@")[0]
-		except:
-			log.debug("Error in parsing dialedpeernumber by @")
+		except Exception as e:
+			log.debug("Error in parsing dialedpeernumber by @ with msg %s", e)
 		log.debug("Dialed peer number %s leads to number %s", dp, num)
 		return num
 
@@ -232,40 +226,15 @@ class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMix
 			devnull.close()
 
 
-def main():
-	argp = argparse.ArgumentParser()
-	argp.add_argument("-i", "--ip", help="Set bind ip for FastAGI", default=None)
-	argp.add_argument("-p", "--port", help="Set bind port for FastAGI", type=int, default=None)
-
-	args = argp.parse_args()  # pylint: disable=W0612
-
-	conf = config.SlackAsteriskConfig()
-	c = conf.get_configobj()
-
-	if args.ip is not None:
-		ip = args.ip
-	else:
-		ip = c["general"]["ip"]
-
-	if args.port is not None:
-		port = args.port
-	else:
-		port = c["general"]["port"]
-
-	# FIXME: add oauth
-	if "SLACK_TOKEN" in os.environ:
-		slack_token = os.environ["SLACK_TOKEN"]
-		sc = slackclient.SlackClient(slack_token)
-	else:
-		raise RuntimeError("oauth not yet implemented")
+def agi_server(ip, port, config):
+	slack_token = os.environ["SLACK_TOKEN"]
+	sc = slackclient.SlackClient(slack_token)
 
 	SocketServer.TCPServer.allow_reuse_address = True
 	server = SocketServer.TCPServer((ip, port), SlackAsterisk)
 	server.slack_client = sc
-	server.config = c["slack"]
+	server.config = config["slack"]
 	server.calls_dict = dict()
-
-	log.info("slack_asterisk version %s starting", __version__)
 
 	try:
 		log.debug("Server FastAGI on %s:%s", ip, port)
@@ -276,7 +245,3 @@ def main():
 	except Exception as e:
 		log.exception("Unknown Exception %s occured", e)
 		sys.exit(1)
-
-
-if __name__ == "__main__":
-	main()
