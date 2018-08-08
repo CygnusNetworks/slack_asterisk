@@ -6,7 +6,6 @@ import sys
 from . import __version__
 from . import agi_server
 from . import config
-from . import http_server
 
 log = logging.getLogger("slack_asterisk")
 log.setLevel(logging.DEBUG)

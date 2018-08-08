@@ -26,7 +26,7 @@ class NoLoggingWSGIRequestHandler(wsgiref.simple_server.WSGIRequestHandler, obje
 		log.debug("HTTP server request %s - status %s - length %s", *args)
 
 
-class HTTPHandler(object):
+class HTTPHandler(object):  # pylint:disable=too-few-public-methods
 	def on_get(self, req, resp):  # pylint:disable=no-self-use
 		log.debug("Got GET request for %s", req.path)
 		resp.status = falcon.HTTP_200
