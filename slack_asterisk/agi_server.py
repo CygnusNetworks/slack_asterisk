@@ -10,6 +10,7 @@ import slackclient
 
 log = logging.getLogger("slack_asterisk")
 
+
 class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMixIn, object):
 	@staticmethod
 	def get_vars(agi):

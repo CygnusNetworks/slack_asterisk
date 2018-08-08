@@ -11,7 +11,7 @@ log = logging.getLogger("slack_asterisk")
 app = falcon.API()
 
 
-class ThreadingWSGIServer(SocketServer.ThreadingMixIn, wsgiref.simple_server.WSGIServer):
+class ThreadingWSGIServer(SocketServer.ThreadingMixIn, wsgiref.simple_server.WSGIServer):  # pylint:disable=too-few-public-methods
 	pass
 
 
@@ -27,13 +27,13 @@ class NoLoggingWSGIRequestHandler(wsgiref.simple_server.WSGIRequestHandler, obje
 
 
 class HTTPHandler(object):
-	def on_get(self, req, resp):
+	def on_get(self, req, resp):  # pylint:disable=no-self-use
 		log.debug("Got GET request for %s", req.path)
 		resp.status = falcon.HTTP_200
 		resp.body = "OK"
 
 
-def oauth_server(ip, port, config):
+def oauth_server(ip, port, _):
 	httph = HTTPHandler()
 	app.add_route('/', httph)
 	http_serv = wsgiref.simple_server.make_server(ip, port, app, server_class=ThreadingWSGIServer, handler_class=NoLoggingWSGIRequestHandler)
