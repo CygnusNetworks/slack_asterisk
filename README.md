@@ -2,7 +2,7 @@
 
 This is a Asterisk Slack Integration, which provides logging of incoming and outgoing phone calls including call progress. 
 It will post a initial message on the first call and updates this on call progress.
-It is implemented as a FastAGI server.
+It is implemented as a Asterisk FastAGI server (listening on local socket port 4574).
 
 ![Slack Asterisk example](slack_asterisk_example.png?raw=true "Example Output")
 
@@ -31,15 +31,17 @@ a config file in /etc/slack-asterisk.conf to override the default values.
 
 Start using Slack Token from environment:
 
-`export SLACK_TOKEN=xoxb....
+```
+export SLACK_TOKEN=xoxb....
 /usr/bin/slack-asterisk
-`
+```
 
 The provided SystemD Unit file will read the Slack Token from /etc/slack-asterisk.token.
 
 Config file options (including defaults) are the following:
 
-`[general]
+```
+[general]
 ip = 127.0.0.1
 port = 4574
 
@@ -50,13 +52,13 @@ channel = "telefon"
 
 username = "User"
 emoji  = ":telephone_receiver:"
-`
+```
 
 Once the service is running, you need to have the FastAGI included in your extensions. Be sure to included 
 all incoming and outgoing dials and all call states. In additon define the Macro given below, to catch answered
 calls.
 
-`
+```
 ; incoming call extension
 same => n,AGI(agi://127.0.0.1:4574/)
 same => n,Dial(SIP/FIXME,120,trM(slack-answered^${UNIQUEID}))
@@ -84,4 +86,4 @@ same => next,Goto(leave-voicemail,${EXTEN},1)
 [macro-slack-answered]
 exten => s,1,Noop(macro slack-answered called)
 same => next,AGI(agi://127.0.0.1:4574/)
-`
+```
