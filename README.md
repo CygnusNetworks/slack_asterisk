@@ -38,30 +38,15 @@ export SLACK_TOKEN=xoxb....
 
 The provided SystemD Unit file will read the Slack Token from /etc/slack-asterisk.token.
 
-Config file options (including defaults) are the following:
-
-```
-[general]
-ip = 127.0.0.1
-port = 4574
-
-[slack]
-client_id = ""
-client_secret = ""
-channel = "telefon"
-
-username = "User"
-emoji  = ":telephone_receiver:"
-```
+### Asterisk extensions
 
 Once the service is running, you need to have the FastAGI included in your extensions. Be sure to included 
-all incoming and outgoing dials and all call states. In additon define the Macro given below, to catch answered
-calls.
+all incoming and outgoing dials and all call states. 
 
 ```
 ; incoming call extension
 same => n,AGI(agi://127.0.0.1:4574/)
-same => n,Dial(SIP/FIXME,120,trM(slack-answered^${UNIQUEID}))
+same => n,Dial(SIP/FIXME,120,trM(slack-answered^${UNIQUEID})) ; Macro see below
 
 ...
 ; congestion, hangup, ... call states
@@ -82,8 +67,30 @@ same => next,Goto(leave-voicemail,${EXTEN},1)
 exten => busy,1,Set(GREETING=b)
 same => next,AGI(agi://127.0.0.1:4574/)
 same => next,Goto(leave-voicemail,${EXTEN},1)
+```
 
+In additon define the Macro given below, to catch answered calls.
+
+```
 [macro-slack-answered]
 exten => s,1,Noop(macro slack-answered called)
 same => next,AGI(agi://127.0.0.1:4574/)
+```
+
+### Config file
+
+Config file options are the following (defaults are given):
+
+```
+[general]
+ip = 127.0.0.1
+port = 4574
+
+[slack]
+client_id = ""
+client_secret = ""
+channel = "telefon"
+
+username = "User"
+emoji  = ":telephone_receiver:"
 ```
