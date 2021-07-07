@@ -3,12 +3,12 @@
 %{!?py2_install: %global py2_install %{__python2} setup.py install --skip-build --root %{buildroot}}
 %endif
 
-%if (0%{?fedora} >= 21 || 0%{?rhel} >= 8)
+%if (0%{?fedora} >= 21 || 0%{?rhel} >= 7)
 %global with_python3 1
 %endif
 
 %define srcname slack_asterisk
-%define version 0.10
+%define version 0.20
 %define release 1
 %define sum Slack Asterisk Integration
 
