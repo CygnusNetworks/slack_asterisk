@@ -6,7 +6,7 @@ import os
 import sys
 
 import asterisk.agi
-import slackclient
+import slack
 
 log = logging.getLogger("slack_asterisk")
 
@@ -229,7 +229,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 
 def agi_server(ip, port, config):
 	slack_token = os.environ["SLACK_TOKEN"]
-	sc = slackclient.SlackClient(slack_token)
+	sc = slack.SlackClient(slack_token)
 
 	socketserver.TCPServer.allow_reuse_address = True
 	server = socketserver.TCPServer((ip, port), SlackAsterisk)
