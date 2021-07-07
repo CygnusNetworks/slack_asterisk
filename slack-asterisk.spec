@@ -28,7 +28,7 @@ BuildRequires:  pytest
 %endif # with_check
 Requires:       python-setuptools, python-configobj, python-vobject, python-pyst
 
-%{?python_provide:%python_provide python-%{project}}
+%{?python_provide:%python_provide python-%{srcname}}
 
 %if 0%{?with_python3}
 BuildRequires:  python3-devel
@@ -42,12 +42,12 @@ BuildRequires:  python3-pytest
 %{sum}
 
 %if 0%{?with_python3}
-%package -n python3-%{project}
+%package -n python3-%{srcname}
 Summary:        %{sum}
-%{?python_provide:%python_provide python3-%{project}}
+%{?python_provide:%python_provide python3-%{srcname}}
 Requires:       python3-setuptools
 
-%description -n python3-%{project}
+%description -n python3-%{srcname}
 %{sum}
 %endif # with_python3
 
@@ -97,7 +97,7 @@ LANG=en_US.utf8 py.test-%{python3_version} -vv tests
 %{_bindir}/slack-asterisk
 
 %if 0%{?with_python3}
-%files -n python3-%{project}
+%files -n python3-%{srcname}
 %dir %{python3_sitelib}/%{srcname}
 %dir %{python3_sitelib}/%{srcname}/__pycache__
 %{python3_sitelib}/%{srcname}/*.*
