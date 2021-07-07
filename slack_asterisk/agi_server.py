@@ -229,7 +229,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 
 def agi_server(ip, port, config):
 	slack_token = os.environ["SLACK_TOKEN"]
-	sc = slack.SlackClient(slack_token)
+	sc = slack.WebClient(slack_token)
 
 	socketserver.TCPServer.allow_reuse_address = True
 	server = socketserver.TCPServer((ip, port), SlackAsterisk)
