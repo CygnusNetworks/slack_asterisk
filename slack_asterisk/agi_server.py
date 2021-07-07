@@ -36,7 +36,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 
 		to_delete = []
 		for k, v in chan_vars.items():
-			if len(v) == 0:
+			if not v:
 				to_delete.append(k)
 		for entry in to_delete:
 			del chan_vars[entry]
@@ -50,7 +50,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 			title = "⬅️ "
 		title += "Call from "
 		title += msg_data["from_num"]
-		if msg_data["from_name"] is not None and msg_data["from_name"] is not "anonymous":
+		if msg_data["from_name"] and msg_data["from_name"]!="anonymous":
 			title += " (%s) " % msg_data["from_name"]
 
 		footer = "Time: %s" % msg_data["ts_in"].strftime("%A %d.%m.%Y %H:%M:%S")
@@ -111,7 +111,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 		log.debug("Dialed peer number %s leads to number %s", dp, num)
 		return num
 
-	def handle(self):  # pylint:disable=too-many-statements
+	def handle(self):  # pylint:disable=too-many-statements,too-many-nested-blocks
 		log.debug("Received FastAGI request for client %s:%s", self.client_address[0], self.client_address[1])
 		try:
 			devnull = open(os.devnull, 'w')
