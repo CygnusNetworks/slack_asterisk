@@ -1,5 +1,5 @@
 # coding=utf-8
-import SocketServer
+import socketserver
 import datetime
 import logging
 import os
@@ -11,7 +11,7 @@ import slackclient
 log = logging.getLogger("slack_asterisk")
 
 
-class SlackAsterisk(SocketServer.StreamRequestHandler, SocketServer.ThreadingMixIn, object):
+class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMixIn, object):
 	@staticmethod
 	def get_vars(agi):
 		chan_vars = dict()
@@ -231,8 +231,8 @@ def agi_server(ip, port, config):
 	slack_token = os.environ["SLACK_TOKEN"]
 	sc = slackclient.SlackClient(slack_token)
 
-	SocketServer.TCPServer.allow_reuse_address = True
-	server = SocketServer.TCPServer((ip, port), SlackAsterisk)
+	socketserver.TCPServer.allow_reuse_address = True
+	server = socketserver.TCPServer((ip, port), SlackAsterisk)
 	server.slack_client = sc
 	server.config = config["slack"]
 	server.calls_dict = dict()
