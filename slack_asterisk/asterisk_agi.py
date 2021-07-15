@@ -6,7 +6,7 @@ import re
 import signal
 import sys
 
-from slack_asterisk import exceptions
+from . import exceptions
 
 DEFAULT_TIMEOUT = 2000  # 2sec timeout used as default for functions that take timeouts
 DEFAULT_RECORD = 20000  # 20sec record time
