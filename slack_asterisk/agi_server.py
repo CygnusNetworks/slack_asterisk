@@ -5,11 +5,20 @@ import logging
 import os
 import sys
 
-import asterisk.agi
+import asterisk_agi
 import slack
 
 log = logging.getLogger("slack_asterisk")
+LOG_SPEC = "%(name)s[%(process)s]: %(filename)s:%(lineno)d/%(funcName)s###%(message)s"
+stdout_formatter = logging.Formatter("%(asctime)s.%(msecs)06d" + " " + LOG_SPEC, datefmt='%Y-%m-%dT%T')
 
+# configure a standard output handler
+stdout_handler = logging.StreamHandler()
+stdout_handler.setFormatter(stdout_formatter)
+stdout_handler.setLevel(logging.DEBUG)
+
+log.addHandler(stdout_handler)
+log.setLevel(logging.DEBUG)
 
 class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMixIn, object):
 	@staticmethod
@@ -69,8 +78,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 		data = self.get_formatting(msg, msg_data, color)
 		att = [data]
 		log.debug("Channel update called for channel %s", self.server.config["channel"])
-		method = "chat.update"
-		ret = self.server.slack_client.api_call(method, channel=msg_data["channel"], attachments=att, ts=msg_data["ts"])
+		ret = self.server.slack_client.chat_update(channel=msg_data["channel"], attachments=att, ts=msg_data["ts"])
 		if ret["ok"] is not True:
 			raise RuntimeError("Cannot post message with error %s" % ret["error"])
 
@@ -78,8 +86,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 		data = self.get_formatting(msg, msg_data, color)
 		att = [data]
 		log.debug("Channel post called for channel %s", self.server.config["channel"])
-		method = "chat.postMessage"
-		ret = self.server.slack_client.api_call(method, channel=self.server.config["channel"], attachments=att)
+		ret = self.server.slack_client.chat_postMessage(channel=self.server.config["channel"], attachments=att)
 
 		if ret["ok"] is not True:
 			raise RuntimeError("Cannot post message with error %s" % ret["error"])
@@ -114,8 +121,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 	def handle(self):  # pylint:disable=too-many-statements
 		log.debug("Received FastAGI request for client %s:%s", self.client_address[0], self.client_address[1])
 		try:  # pylint:disable=too-many-nested-blocks
-			devnull = open(os.devnull, 'w')
-			agi = asterisk.agi.AGI(self.rfile, self.wfile, devnull)
+			agi = asterisk_agi.AGI(self.rfile, self.wfile)
 			channel_vars = self.get_vars(agi)
 			log.debug("FastAGI request for client %s:%s for %s", self.client_address[0], self.client_address[1], str(channel_vars))
 
@@ -218,13 +224,14 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 			elif "hangupcause" in channel_vars and int(channel_vars["hangupcause"]) > 0:
 				dest = self.get_destination(msg_data)
 				self.update_message("Call hung up by %s" % dest, msg_data)
+			elif "hangupcause" in channel_vars and int(channel_vars["hangupcause"]) <= 0:
+				self.update_message("Unknown call state (hangupcause %i)" % int(channel_vars["hangupcause"]), msg_data)
 			else:
 				self.update_message("Unknown call state", msg_data)
+
 		except Exception as e:
 			del agi
 			log.exception("Exception occured with mesage %s", e)
-		finally:
-			devnull.close()
 
 
 def agi_server(ip, port, config):
