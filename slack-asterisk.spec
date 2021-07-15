@@ -26,7 +26,7 @@ BuildRequires: systemd
 %if 0%{?with_check}
 BuildRequires:  pytest
 %endif # with_check
-Requires:       python-setuptools, python-configobj, python-vobject, python-pyst
+Requires:       python-setuptools, python-configobj, python-vobject
 
 %{?python_provide:%python_provide python-%{srcname}}
 
@@ -69,6 +69,7 @@ install -p -m 644 ./slack-asterisk.service $RPM_BUILD_ROOT%{_unitdir}/slack-aste
 %if 0%{?with_python3}
 %py3_install
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
+install -p -m 644 ./slack-asterisk.service $RPM_BUILD_ROOT%{_unitdir}/slack-asterisk.service
 %endif # with_python3
 
 %if 0%{?with_check}
@@ -108,5 +109,5 @@ LANG=en_US.utf8 py.test-%{python3_version} -vv tests
 %endif # with_python3
 
 %changelog
-* Thu Feb 11 2016 Dr. Torge Szczepanek <t.szczepanek@cygnusnetworks.de>
-- Fix source name (t.szczepanek@cygnusnetworks.de)
+* Thu Feb 11 2016 Dr. Torge Szczepanek <debian@cygnusnetworks.de>
+- Fix source name (debian@cygnusnetworks.de)
