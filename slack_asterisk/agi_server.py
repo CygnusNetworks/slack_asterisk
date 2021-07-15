@@ -20,6 +20,7 @@ stdout_handler.setLevel(logging.DEBUG)
 log.addHandler(stdout_handler)
 log.setLevel(logging.DEBUG)
 
+
 class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMixIn, object):
 	@staticmethod
 	def get_vars(agi):
