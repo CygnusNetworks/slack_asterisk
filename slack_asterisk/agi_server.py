@@ -5,8 +5,9 @@ import logging
 import os
 import sys
 
-from . import asterisk_agi
 import slack
+
+from . import asterisk_agi
 
 log = logging.getLogger("slack_asterisk")
 LOG_SPEC = "%(name)s[%(process)s]: %(filename)s:%(lineno)d/%(funcName)s###%(message)s"
