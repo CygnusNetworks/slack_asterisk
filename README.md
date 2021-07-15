@@ -8,17 +8,18 @@ It is implemented as a Asterisk FastAGI server (listening on local socket port 4
 
 ## Requirements
 
- * Python 2.7
+ * Python 3.x
  * configobj
- * pyst
  * slackclient
  * falcon
+
+For a Python 2.7 version see release tag 0.10.
  
 ## Installation
 
 Use:
 
-`python setup.py install`
+`python3 setup.py install`
 
 or build a rpm using the provided RPM spec file (tested using CentOS 7). 
 Also a SystemD Unit file is provided, which allows starting and stopping of the FastAGI service.
