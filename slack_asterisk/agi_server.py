@@ -5,7 +5,7 @@ import logging
 import os
 import sys
 
-import asterisk_agi
+from . import asterisk_agi
 import slack
 
 log = logging.getLogger("slack_asterisk")
