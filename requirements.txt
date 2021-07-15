@@ -1,0 +1,6 @@
+--index-url https://pypi.python.org/simple/
+
+configobj==5.0.6
+pyst==0.8
+slackclient==2.9.3
+falcon==3.0.1

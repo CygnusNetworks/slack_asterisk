@@ -16,5 +16,5 @@ setup(
 	license='Apache-2.0',
 	entry_points={'console_scripts': ['slack-asterisk = slack_asterisk.main:main']},
 	packages=find_packages(),
-	install_requires=['configobj', 'pyst', 'slackclient', 'falcon']
+	install_requires=['configobj', 'slackclient', 'falcon']
 )
