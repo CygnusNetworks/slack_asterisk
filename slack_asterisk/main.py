@@ -22,13 +22,13 @@ def _handle_stop_signal(signum, frame):  # pylint:disable=unused-argument
 
 
 def main():
-    # Ensure SLACK_TOKEN is set in environment
-    if not os.environ.get("SLACK_TOKEN"):
-        log.error("Environment variable SLACK_TOKEN must be set before starting slack_asterisk.")
-        sys.exit(1)
+	# Ensure SLACK_TOKEN is set in environment
+	if not os.environ.get("SLACK_TOKEN"):
+		log.error("Environment variable SLACK_TOKEN must be set before starting slack_asterisk.")
+		sys.exit(1)
 
-    conf = config.SlackAsteriskConfig()
-    c = conf.get_configobj()
+	conf = config.SlackAsteriskConfig()
+	c = conf.get_configobj()
 
 	argp = argparse.ArgumentParser()
 	argp.add_argument("-i", "--ip", help="Set bind ip", default=c["general"]["ip"])
