@@ -9,10 +9,19 @@ from . import __version__
 from . import agi_server
 from . import config
 
+LOG_SPEC = "%(name)s[%(process)s]: %(filename)s:%(lineno)d/%(funcName)s###%(message)s"
+
+def _get_log_level_from_env():
+    level_name = os.environ.get("LOG_LEVEL", os.environ.get("DEBUG_LEVEL", "INFO")).upper()
+    return getattr(logging, level_name, logging.INFO)
+
+
 log = logging.getLogger("slack_asterisk")
-log.setLevel(logging.DEBUG)
 ch = logging.StreamHandler(sys.stdout)
+ch.setFormatter(logging.Formatter("%(asctime)s.%(msecs)06d" + " " + LOG_SPEC, datefmt='%Y-%m-%dT%T'))
+ch.setLevel(_get_log_level_from_env())
 log.addHandler(ch)
+log.setLevel(_get_log_level_from_env())
 
 
 def _handle_stop_signal(signum, frame):  # pylint:disable=unused-argument
