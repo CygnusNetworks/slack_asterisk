@@ -177,7 +177,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
     def update_message(self, msg, msg_data, color="good"):
         data = self.get_formatting(msg, msg_data, color)
         att = [data]
-        log.debug("Channel update called for channel %s", self.server.config["channel"])
+        log.debug("Channel update called for channel %s with attachment %s", self.server.config["channel"], att)
         ret = self.server.slack_client.chat_update(channel=msg_data["channel"], attachments=att, ts=msg_data["ts"])
         if ret["ok"] is not True:
             raise RuntimeError("Cannot post message with error %s" % ret["error"])
@@ -185,7 +185,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
     def post_message(self, msg, msg_data, color="good"):
         data = self.get_formatting(msg, msg_data, color)
         att = [data]
-        log.debug("Channel post called for channel %s", self.server.config["channel"])
+        log.debug("Channel post called for channel %s with attachments %s", self.server.config["channel"], att)
         ret = self.server.slack_client.chat_postMessage(channel=self.server.config["channel"], attachments=att)
 
         if ret["ok"] is not True:
@@ -255,6 +255,8 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
 
             if "info_text" in channel_vars:
                 msg_data["info_text"] = channel_vars["info_text"]
+            if "title_text" in channel_vars:
+                msg_data["title_text"] = channel_vars["title_text"]
             if "color" in channel_vars:
                 msg_data["color"] = channel_vars["color"]
             if "type" in channel_vars:
