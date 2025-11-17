@@ -158,7 +158,8 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
         if msg_data["from_name"] and msg_data["from_name"] != "anonymous":
             title += " (%s) " % msg_data["from_name"]
 
-        title += " - " + msg_data["title_text"]
+        if msg_data["title_text"] is not None:
+            title += " - " + msg_data["title_text"]
 
         footer = "Time: %s" % msg_data["ts_in"].strftime("%A %d.%m.%Y %H:%M:%S")
         if msg_data["dialedtime"] is not None:
