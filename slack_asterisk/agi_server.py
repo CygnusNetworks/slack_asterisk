@@ -5,24 +5,30 @@ import logging
 import os
 import sys
 
-import slack
+from slack_sdk import WebClient
 
 from . import asterisk_agi
 
 log = logging.getLogger("slack_asterisk")
 LOG_SPEC = "%(name)s[%(process)s]: %(filename)s:%(lineno)d/%(funcName)s###%(message)s"
-stdout_formatter = logging.Formatter("%(asctime)s.%(msecs)06d" + " " + LOG_SPEC, datefmt='%Y-%m-%dT%T')
-
-# configure a standard output handler
-stdout_handler = logging.StreamHandler()
-stdout_handler.setFormatter(stdout_formatter)
-stdout_handler.setLevel(logging.DEBUG)
-
-log.addHandler(stdout_handler)
-log.setLevel(logging.DEBUG)
 
 
-class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMixIn):
+def _configure_logging_from_env():
+    level_name = os.getenv("LOG_LEVEL", os.getenv("DEBUG_LEVEL", "INFO")).upper()
+    level = getattr(logging, level_name, logging.INFO)
+    fmt = logging.Formatter("%(asctime)s.%(msecs)06d" + " " + LOG_SPEC, datefmt='%Y-%m-%dT%T')
+    if not log.handlers:
+        h = logging.StreamHandler(sys.stdout)
+        h.setFormatter(fmt)
+        h.setLevel(level)
+        log.addHandler(h)
+    log.setLevel(level)
+
+
+_configure_logging_from_env()
+
+
+class SlackAsterisk(socketserver.StreamRequestHandler):
 	@staticmethod
 	def get_vars(agi):
 		chan_vars = dict()
@@ -124,8 +130,13 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 		log.debug("Received FastAGI request for client %s:%s", self.client_address[0], self.client_address[1])
 		try:  # pylint:disable=too-many-nested-blocks
 			agi = asterisk_agi.AGI(self.rfile, self.wfile)
+			# Debug log of raw AGI environment variables
+			try:
+				log.debug("AGI env: %s", getattr(agi, 'env', {}))
+			except Exception as _e:  # pragma: no cover
+				log.debug("Unable to log AGI env: %s", _e)
 			channel_vars = self.get_vars(agi)
-			log.debug("FastAGI request for client %s:%s for %s", self.client_address[0], self.client_address[1], str(channel_vars))
+			log.debug("FastAGI channel vars from %s:%s -> %s", self.client_address[0], self.client_address[1], channel_vars)
 
 			new_call = False
 			if "arg1" in channel_vars:
@@ -238,16 +249,24 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 				self.update_message("Unknown call state", msg_data)
 
 		except Exception as e:
-			del agi
-			log.exception("Exception occured with mesage %s", e)
+			try:
+				del agi
+			except Exception:
+				pass
+			log.exception("Exception occurred with message %s", e)
+
+
+class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+	daemon_threads = True
+	allow_reuse_address = True
 
 
 def agi_server(ip, port, config):
 	slack_token = os.environ["SLACK_TOKEN"]
-	sc = slack.WebClient(slack_token)
+	sc = WebClient(slack_token)
 
-	socketserver.TCPServer.allow_reuse_address = True
-	server = socketserver.TCPServer((ip, port), SlackAsterisk)
+	ThreadedTCPServer.allow_reuse_address = True
+	server = ThreadedTCPServer((ip, port), SlackAsterisk)
 	server.slack_client = sc
 	server.config = config["slack"]
 	server.calls_dict = dict()
@@ -259,5 +278,5 @@ def agi_server(ip, port, config):
 		log.info("Shutdown on ctrl-c")
 		sys.exit(0)
 	except Exception as e:
-		log.exception("Unknown Exception %s occured", e)
+		log.exception("Unknown Exception %s occurred", e)
 		sys.exit(1)
