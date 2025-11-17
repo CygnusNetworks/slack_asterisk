@@ -22,7 +22,7 @@ log.addHandler(stdout_handler)
 log.setLevel(logging.DEBUG)
 
 
-class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMixIn, object):
+class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMixIn):
 	@staticmethod
 	def get_vars(agi):
 		chan_vars = dict()
@@ -93,8 +93,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 
 		if ret["ok"] is not True:
 			raise RuntimeError("Cannot post message with error %s" % ret["error"])
-		else:
-			return ret["ts"], ret["channel"]
+		return ret["ts"], ret["channel"]
 
 	@staticmethod
 	def get_destination(msg_data):
@@ -196,6 +195,8 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 			elif "dialstatus" in channel_vars:
 				log.debug("finished call detected for uniqueid %s", channel_vars["uniqueid"])
 				dest = self.get_destination(msg_data)
+				# set color to grey as default
+				color = "#333333"
 				# this is a finished call
 				if channel_vars["dialstatus"] == "ANSWER":
 					text = "✅ Call ended"
@@ -254,7 +255,7 @@ def agi_server(ip, port, config):
 	try:
 		log.debug("Server FastAGI on %s:%s", ip, port)
 		server.serve_forever()
-	except KeyboardInterrupt as e:
+	except KeyboardInterrupt as e:  # pylint:disable=unused-variable
 		log.info("Shutdown on ctrl-c")
 		sys.exit(0)
 	except Exception as e:
