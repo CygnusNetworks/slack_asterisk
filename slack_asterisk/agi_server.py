@@ -273,11 +273,11 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
 				msg_data["ts"] = ts
 				msg_data["channel"] = channel
 			elif "arg1" in channel_vars:
-				log.debug("Picked up call detected for uniqueid %s", channel_vars["uniqueid"]) 
+				log.debug("Picked up call detected for uniqueid %s", channel_vars["uniqueid"])
 				# this is a picked up call in a dial M macro
 				if "dialedpeernumber" in channel_vars:
 					log.debug("Found dp number in channel vars %s", channel_vars)
-					msg_data["to_num"] = self.get_dialedpeernumber(channel_vars["dialedpeernumber"]) 
+					msg_data["to_num"] = self.get_dialedpeernumber(channel_vars["dialedpeernumber"])
 				else:
 					log.debug("No dialed peer number in channel vars %s", channel_vars)
 					if "callerid_num" in channel_vars:
@@ -338,6 +338,13 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 	daemon_threads = True
 	allow_reuse_address = True
+
+	def __init__(self, server_address, RequestHandlerClass, bind_and_activate=True):  # noqa: N803 (keep arg names per base class)
+		# Predefine instance attributes to satisfy linters and clarify intent.
+		self.slack_client = None  # type: ignore[assignment]
+		self.config = {}          # type: ignore[assignment]
+		self.calls_dict = {}
+		super().__init__(server_address, RequestHandlerClass, bind_and_activate)
 
 
 def agi_server(ip, port, config):
