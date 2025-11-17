@@ -170,8 +170,8 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
             color = msg_data["color"]
         if msg_data["type"] is not None:
             msg = "%s: %s" % (msg_data["type"], msg)
-        msg_data["fallback"] = title[2:]
-        data = dict(color=color, title=title, text=msg, username=self.server.config["username"], icon_emoji=self.server.config["emoji"], actions=actions, footer=footer)
+
+        data = dict(color=color, title=title, text=msg, fallback=title[2:], username=self.server.config["username"], icon_emoji=self.server.config["emoji"], actions=actions, footer=footer)
         return data
 
     def update_message(self, msg, msg_data, color="good"):
