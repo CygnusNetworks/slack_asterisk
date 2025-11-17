@@ -31,6 +31,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 		chan_vars["uniqueid"] = agi.get_variable('UNIQUEID')
 		chan_vars["arg1"] = agi.get_variable('ARG1')
 		chan_vars["refid"] = agi.get_variable('SLACK_ASTERISK_REFID')
+		chan_vars["info_text"] = agi.get_variable('SLACK_ASTERISK_INFO_TEXT')
 
 		chan_vars["dialstatus"] = agi.get_variable('DIALSTATUS')
 		chan_vars["dialedpeername"] = agi.get_variable('DIALEDPEERNAME')
@@ -134,7 +135,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 			else:
 				# all other cases
 				if channel_vars["uniqueid"] not in self.server.calls_dict:
-					self.server.calls_dict[channel_vars["uniqueid"]] = dict(ts=None, channel=None, from_num=None, from_name=None, to_num=None, to_name=None, ts_in=datetime.datetime.now(), ts_connected=None, dialedtime=None, answeredtime=None, color=None, type=None, direction=None)
+					self.server.calls_dict[channel_vars["uniqueid"]] = dict(ts=None, channel=None, from_num=None, from_name=None, to_num=None, to_name=None, ts_in=datetime.datetime.now(), ts_connected=None, dialedtime=None, answeredtime=None, info_text=None, color=None, type=None, direction=None)
 					msg_data = self.server.calls_dict[channel_vars["uniqueid"]]
 					if msg_data["from_num"] is None:
 						msg_data["from_num"] = channel_vars["callerid_num"]
@@ -154,6 +155,8 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 				else:
 					msg_data = self.server.calls_dict[channel_vars["uniqueid"]]
 
+			if "info_text" in channel_vars:
+				msg_data["info_text"] = channel_vars["info_text"]
 			if "color" in channel_vars:
 				msg_data["color"] = channel_vars["color"]
 			if "type" in channel_vars:
@@ -171,6 +174,8 @@ class SlackAsterisk(socketserver.StreamRequestHandler, socketserver.ThreadingMix
 					text = "📞 Incoming call (ringing)"
 				else:
 					text = "📞 Outgoing call (ringing) to %s" % channel_vars["exten"]
+				if msg_data["info_text"] is not None:
+					text += " (%s)" % msg_data["info_text"]
 				(ts, channel) = self.post_message(text, msg_data)
 				msg_data["ts"] = ts
 				msg_data["channel"] = channel
