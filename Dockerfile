@@ -9,6 +9,7 @@ COPY slack_asterisk /usr/src/app/slack_asterisk
 
 ENV LISTEN_IP=127.0.0.1
 ENV LISTEN_PORT=4574
+ENV LOG_LEVEL=INFO
 
 EXPOSE 4574
 

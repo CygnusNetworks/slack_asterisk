@@ -1,40 +1,39 @@
+"""Simple Flask-based HTTP server (replacing Falcon).
+
+Exposes a single health endpoint returning "OK". Intended as a lightweight
+status/oAuth callback placeholder matching previous behavior.
+"""
+
 # coding=utf-8
 
-import falcon
 import logging
-import wsgiref
-import wsgiref.simple_server
-import SocketServer
+import os
+from flask import Flask, request, Response
 
 log = logging.getLogger("slack_asterisk")
 
-app = falcon.API()
+
+def _init_logging_from_env():
+    level_name = os.getenv("LOG_LEVEL", os.getenv("DEBUG_LEVEL", "INFO")).upper()
+    level = getattr(logging, level_name, logging.INFO)
+    if not log.handlers:
+        ch = logging.StreamHandler()
+        ch.setLevel(level)
+        log.addHandler(ch)
+    log.setLevel(level)
 
 
-class ThreadingWSGIServer(SocketServer.ThreadingMixIn, wsgiref.simple_server.WSGIServer):  # pylint:disable=too-few-public-methods
-	pass
+_init_logging_from_env()
+
+app = Flask(__name__)
 
 
-class NoLoggingWSGIRequestHandler(wsgiref.simple_server.WSGIRequestHandler, object):  # pylint:disable=too-few-public-methods
-	"""WSGIRequestHandler that logs to debug instead of stderr"""
-
-	def log_message(self, _, *args):
-		# pylint:disable=W1401
-		"""Log an arbitrary message to log.debug
-		"""
-		# pylint:enable=W1401
-		log.debug("HTTP server request %s - status %s - length %s", *args)
-
-
-class HTTPHandler(object):  # pylint:disable=too-few-public-methods
-	def on_get(self, req, resp):  # pylint:disable=no-self-use
-		log.debug("Got GET request for %s", req.path)
-		resp.status = falcon.HTTP_200
-		resp.body = "OK"
+@app.route("/", methods=["GET"])  # health/simple endpoint
+def root_ok():  # pylint:disable=unused-variable
+    log.debug("Got %s request for %s", request.method, request.path)
+    return Response("OK", status=200, mimetype="text/plain")
 
 
 def oauth_server(ip, port, _):
-	httph = HTTPHandler()
-	app.add_route('/', httph)
-	http_serv = wsgiref.simple_server.make_server(ip, port, app, server_class=ThreadingWSGIServer, handler_class=NoLoggingWSGIRequestHandler)
-	http_serv.serve_forever()
+    # Run a threaded Flask development server. In production, use a WSGI server.
+    app.run(host=ip, port=port, threaded=True)

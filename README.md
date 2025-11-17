@@ -8,10 +8,10 @@ It is implemented as a Asterisk FastAGI server (listening on local socket port 4
 
 ## Requirements
 
- * Python 3.x
- * configobj
- * slackclient
- * falcon
+ - Python 3.12+
+ - configobj, validate
+ - slack_sdk
+ - Flask
 
 For a Python 2.7 version see release tag 0.10.
  
@@ -33,8 +33,10 @@ a config file in /etc/slack-asterisk.conf to override the default values.
 Start using Slack Token from environment:
 
 ```
-export SLACK_TOKEN=xoxb....
-/usr/bin/slack-asterisk
+export SLACK_TOKEN=xoxb-...
+# Optional: control verbosity (DEBUG, INFO, WARNING, ERROR)
+export LOG_LEVEL=INFO
+slack-asterisk
 ```
 
 The provided SystemD Unit file will read the Slack Token from /etc/slack-asterisk.token.
@@ -95,3 +97,11 @@ channel = "telefon"
 username = "User"
 emoji  = ":telephone_receiver:"
 ```
+
+## Notes on recent changes
+
+- The HTTP component now uses Flask instead of Falcon.
+- Slack client migrated from `slackclient` to `slack_sdk`.
+- The FastAGI server is implemented using Python's `socketserver` with threading.
+- Logging verbosity is configurable via the `LOG_LEVEL` environment variable.
+- Project is updated and tested for Python 3.12.

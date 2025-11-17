@@ -10,9 +10,19 @@ from . import agi_server
 from . import config
 
 log = logging.getLogger("slack_asterisk")
-log.setLevel(logging.DEBUG)
-ch = logging.StreamHandler(sys.stdout)
-log.addHandler(ch)
+
+
+def _init_logging_from_env():
+    level_name = os.getenv("LOG_LEVEL", os.getenv("DEBUG_LEVEL", "INFO")).upper()
+    level = getattr(logging, level_name, logging.INFO)
+    if not log.handlers:
+        ch = logging.StreamHandler(sys.stdout)
+        ch.setLevel(level)
+        log.addHandler(ch)
+    log.setLevel(level)
+
+
+_init_logging_from_env()
 
 
 def _handle_stop_signal(signum, frame):  # pylint:disable=unused-argument
