@@ -1,40 +1,25 @@
+"""Minimal Flask-based HTTP health server (deprecated module).
+
+This file previously hosted a Falcon-based HTTP server. It is now converted to
+Flask for Python 3 compatibility and to avoid the Falcon dependency. It is not
+used by the main application flow but retained for compatibility.
+"""
+
 # coding=utf-8
 
-import falcon
 import logging
-import wsgiref
-import wsgiref.simple_server
-import SocketServer
+from flask import Flask
 
 log = logging.getLogger("slack_asterisk")
 
-app = falcon.API()
+app = Flask(__name__)
 
 
-class ThreadingWSGIServer(SocketServer.ThreadingMixIn, wsgiref.simple_server.WSGIServer):  # pylint:disable=too-few-public-methods
-	pass
-
-
-class NoLoggingWSGIRequestHandler(wsgiref.simple_server.WSGIRequestHandler, object):  # pylint:disable=too-few-public-methods
-	"""WSGIRequestHandler that logs to debug instead of stderr"""
-
-	def log_message(self, _, *args):
-		# pylint:disable=W1401
-		"""Log an arbitrary message to log.debug
-		"""
-		# pylint:enable=W1401
-		log.debug("HTTP server request %s - status %s - length %s", *args)
-
-
-class HTTPHandler(object):  # pylint:disable=too-few-public-methods
-	def on_get(self, req, resp):  # pylint:disable=no-self-use
-		log.debug("Got GET request for %s", req.path)
-		resp.status = falcon.HTTP_200
-		resp.body = "OK"
+@app.get("/")
+def root():  # pylint:disable=unused-variable
+    log.debug("Got GET request for /")
+    return "OK", 200
 
 
 def oauth_server(ip, port, _):
-	httph = HTTPHandler()
-	app.add_route('/', httph)
-	http_serv = wsgiref.simple_server.make_server(ip, port, app, server_class=ThreadingWSGIServer, handler_class=NoLoggingWSGIRequestHandler)
-	http_serv.serve_forever()
+    app.run(host=ip, port=port)
