@@ -173,7 +173,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
         data = self.get_formatting(msg, msg_data, color)
         att = [data]
         log.debug("Channel update called for channel %s", self.server.config["channel"])
-        ret = self.server.slack_client.chat_update(channel=msg_data["channel"], attachments=att, ts=msg_data["ts"])
+        ret = self.server.slack_client.chat_update(channel=msg_data["channel"], attachments=att, ts=msg_data["ts"], text=msg)
         if ret["ok"] is not True:
             raise RuntimeError("Cannot post message with error %s" % ret["error"])
 
@@ -181,7 +181,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
         data = self.get_formatting(msg, msg_data, color)
         att = [data]
         log.debug("Channel post called for channel %s", self.server.config["channel"])
-        ret = self.server.slack_client.chat_postMessage(channel=self.server.config["channel"], attachments=att)
+        ret = self.server.slack_client.chat_postMessage(channel=self.server.config["channel"], attachments=att, text=msg)
 
         if ret["ok"] is not True:
             raise RuntimeError("Cannot post message with error %s" % ret["error"])
