@@ -124,6 +124,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
         chan_vars["arg1"] = self.get_variable('ARG1')
         chan_vars["refid"] = self.get_variable('SLACK_ASTERISK_REFID')
         chan_vars["info_text"] = self.get_variable('SLACK_ASTERISK_INFO_TEXT')
+        chan_vars["title_text"] = self.get_variable('SLACK_ASTERISK_TITLE_TEXT')
 
         chan_vars["dialstatus"] = self.get_variable('DIALSTATUS')
         chan_vars["dialedpeername"] = self.get_variable('DIALEDPEERNAME')
@@ -157,6 +158,8 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
         if msg_data["from_name"] and msg_data["from_name"] != "anonymous":
             title += " (%s) " % msg_data["from_name"]
 
+        title += " - " + msg_data["title_text"]
+
         footer = "Time: %s" % msg_data["ts_in"].strftime("%A %d.%m.%Y %H:%M:%S")
         if msg_data["dialedtime"] is not None:
             footer += " - Dialed for %s" % str(datetime.timedelta(seconds=msg_data["dialedtime"]))
@@ -173,7 +176,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
         data = self.get_formatting(msg, msg_data, color)
         att = [data]
         log.debug("Channel update called for channel %s", self.server.config["channel"])
-        ret = self.server.slack_client.chat_update(channel=msg_data["channel"], attachments=att, ts=msg_data["ts"], text=msg)
+        ret = self.server.slack_client.chat_update(channel=msg_data["channel"], attachments=att, ts=msg_data["ts"], fallback=msg)
         if ret["ok"] is not True:
             raise RuntimeError("Cannot post message with error %s" % ret["error"])
 
@@ -181,7 +184,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
         data = self.get_formatting(msg, msg_data, color)
         att = [data]
         log.debug("Channel post called for channel %s", self.server.config["channel"])
-        ret = self.server.slack_client.chat_postMessage(channel=self.server.config["channel"], attachments=att, text=msg)
+        ret = self.server.slack_client.chat_postMessage(channel=self.server.config["channel"], attachments=att, fallback=msg)
 
         if ret["ok"] is not True:
             raise RuntimeError("Cannot post message with error %s" % ret["error"])
@@ -228,7 +231,7 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
             else:
                 # all other cases
                 if channel_vars["uniqueid"] not in self.server.calls_dict:
-                    self.server.calls_dict[channel_vars["uniqueid"]] = dict(ts=None, channel=None, from_num=None, from_name=None, to_num=None, to_name=None, ts_in=datetime.datetime.now(), ts_connected=None, dialedtime=None, answeredtime=None, info_text=None, color=None, type=None, direction=None)
+                    self.server.calls_dict[channel_vars["uniqueid"]] = dict(ts=None, channel=None, from_num=None, from_name=None, to_num=None, to_name=None, ts_in=datetime.datetime.now(), ts_connected=None, dialedtime=None, answeredtime=None, title_text=None, info_text=None, color=None, type=None, direction=None)
                     msg_data = self.server.calls_dict[channel_vars["uniqueid"]]
                     if msg_data["from_num"] is None:
                         msg_data["from_num"] = channel_vars["callerid_num"]
