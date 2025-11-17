@@ -15,7 +15,7 @@ re_code = re.compile(r'(^\d*)\s*(.*)')
 re_kv = re.compile(r'(?P<key>\w+)=(?P<value>[^\s]+)\s*(?:\((?P<data>.*)\))*')
 
 
-class AGI(object):  # pylint:disable=too-many-public-methods
+class AGI():  # pylint:disable=too-many-public-methods
 	"""
 	Asterisk AGI interface
 
@@ -100,8 +100,7 @@ class AGI(object):  # pylint:disable=too-many-public-methods
 			if e.errno == 32:
 				# Broken Pipe * let us go
 				raise exceptions.AGISIGPIPEHangup("Received SIGPIPE")
-			else:
-				raise
+			raise
 		except Exception as exc:
 			self.stderr.write("Exception occured: %s\n" % exc)
 
