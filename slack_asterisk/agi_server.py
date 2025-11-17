@@ -17,16 +17,18 @@ stdout_formatter = logging.Formatter("%(asctime)s.%(msecs)06d" + " " + LOG_SPEC,
 stdout_handler = logging.StreamHandler(sys.stdout)
 stdout_handler.setFormatter(stdout_formatter)
 
+
 def _get_log_level_from_env() -> int:
     level_name = os.environ.get("LOG_LEVEL", os.environ.get("DEBUG_LEVEL", "INFO")).upper()
     return getattr(logging, level_name, logging.INFO)
+
 
 stdout_handler.setLevel(_get_log_level_from_env())
 log.addHandler(stdout_handler)
 log.setLevel(_get_log_level_from_env())
 
 
-class SlackAsteriskHTTP(object):  # pylint:disable=too-few-public-methods
+class SlackAsteriskHTTP():  # pylint:disable=too-few-public-methods
     def __init__(self, slack_client, config):
         self.slack_client = slack_client
         self.config = config["slack"]
@@ -97,6 +99,7 @@ class SlackAsteriskHTTP(object):  # pylint:disable=too-few-public-methods
             log.debug("Error in parsing dialedpeernumber by @ with msg %s", e)
         log.debug("Dialed peer number %s leads to number %s", dp, num)
         return num
+
     def process_vars(self, channel_vars: Dict[str, Any]):  # pylint:disable=too-many-statements
         """Process variables received from Asterisk over HTTP."""
         log.debug("Received AGI variables: %s", channel_vars)
