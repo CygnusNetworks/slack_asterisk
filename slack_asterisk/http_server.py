@@ -35,5 +35,9 @@ def root_ok():  # pylint:disable=unused-variable
 
 
 def oauth_server(ip, port, _):
-    # Run a threaded Flask development server. In production, use a WSGI server.
+    # SECURITY NOTE: Flask's built-in development server is used here.
+    # It is not suitable for production: it has no request concurrency limits,
+    # no TLS support, and limited error isolation. For production deployments,
+    # replace this with a WSGI server such as Gunicorn or uWSGI, e.g.:
+    #   gunicorn -w 2 -b ip:port "slack_asterisk.http_server:app"
     app.run(host=ip, port=port, threaded=True)

@@ -4,6 +4,7 @@ import datetime
 import logging
 import os
 import sys
+import threading
 
 from slack_sdk import WebClient
 
@@ -227,14 +228,29 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
             log.debug("FastAGI channel vars from %s:%s -> %s", self.client_address[0], self.client_address[1], channel_vars)
 
             new_call = False
-            if "arg1" in channel_vars:
-                # case Dial Macro, call completed
-                msg_data = self.server.calls_dict[channel_vars["arg1"]]
-            else:
-                # all other cases
-                if channel_vars["uniqueid"] not in self.server.calls_dict:
-                    self.server.calls_dict[channel_vars["uniqueid"]] = dict(ts=None, channel=None, from_num=None, from_name=None, to_num=None, to_name=None, ts_in=datetime.datetime.now(), ts_connected=None, dialedtime=None, answeredtime=None, title_text=None, info_text=None, color=None, type=None, direction=None)
-                    msg_data = self.server.calls_dict[channel_vars["uniqueid"]]
+            call_key = None
+            # Lock calls_dict for the check-and-create section to prevent race conditions
+            # between concurrent threads serving different AGI requests.
+            with self.server.calls_lock:
+                if "arg1" in channel_vars:
+                    # case Dial Macro, call completed
+                    call_key = channel_vars["arg1"]
+                    msg_data = self.server.calls_dict.get(call_key)
+                    if msg_data is None:
+                        log.warning("ARG1 references unknown call ID %s – ignoring request", call_key)
+                        return
+                else:
+                    # all other cases
+                    call_key = channel_vars.get("uniqueid")
+                    if not call_key:
+                        log.warning("No uniqueid in channel vars (broken connection?) – ignoring request")
+                        return
+                    if call_key not in self.server.calls_dict:
+                        self.server.calls_dict[call_key] = dict(ts=None, channel=None, from_num=None, from_name=None, to_num=None, to_name=None, ts_in=datetime.datetime.now(), ts_connected=None, dialedtime=None, answeredtime=None, title_text=None, info_text=None, color=None, type=None, direction=None)
+                        new_call = True
+                    msg_data = self.server.calls_dict[call_key]
+
+            if new_call:
                     if msg_data["from_num"] is None:
                         msg_data["from_num"] = channel_vars["callerid_num"]
                     if msg_data["direction"] is None and "direction" in channel_vars:
@@ -249,9 +265,6 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
                     if msg_data["to_num"] is None:
                         msg_data["to_num"] = channel_vars["exten"]
                     self._set_var("SLACK_ASTERISK_REFID", channel_vars["uniqueid"])
-                    new_call = True
-                else:
-                    msg_data = self.server.calls_dict[channel_vars["uniqueid"]]
 
             if "info_text" in channel_vars:
                 msg_data["info_text"] = channel_vars["info_text"]
@@ -330,9 +343,17 @@ class SlackAsterisk(socketserver.StreamRequestHandler):
                 else:
                     text += " to %s" % dest
                 self.update_message(text, msg_data, color=color)
+                # Call is finished – remove from memory to prevent unbounded growth
+                with self.server.calls_lock:
+                    self.server.calls_dict.pop(call_key, None)
+                    log.debug("Removed finished call %s (calls_dict size: %d)", call_key, len(self.server.calls_dict))
             elif "hangupcause" in channel_vars and int(channel_vars["hangupcause"]) > 0:
                 dest = self.get_destination(msg_data)
                 self.update_message("Call hung up by %s" % dest, msg_data)
+                # Call is finished – remove from memory to prevent unbounded growth
+                with self.server.calls_lock:
+                    self.server.calls_dict.pop(call_key, None)
+                    log.debug("Removed hung-up call %s (calls_dict size: %d)", call_key, len(self.server.calls_dict))
             elif "hangupcause" in channel_vars and int(channel_vars["hangupcause"]) <= 0:
                 self.update_message("Unknown call state (hangupcause %i)" % int(channel_vars["hangupcause"]), msg_data)
             else:
@@ -351,10 +372,16 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
         self.slack_client = None  # type: ignore[assignment]
         self.config = {}          # type: ignore[assignment]
         self.calls_dict = {}
+        self.calls_lock = threading.Lock()
         super().__init__(server_address, RequestHandlerClass, bind_and_activate)
 
 
 def agi_server(ip, port, config):
+    # SECURITY NOTE: The AGI TCP server has no built-in authentication.
+    # Any process that can reach ip:port can trigger Slack messages.
+    # The default bind address is 127.0.0.1 (localhost-only), which is
+    # sufficient for local Asterisk deployments. Do NOT expose this port
+    # to untrusted networks without adding a firewall rule or network ACL.
     slack_token = os.environ["SLACK_TOKEN"]
     sc = WebClient(slack_token)
 
