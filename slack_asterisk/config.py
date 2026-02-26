@@ -17,6 +17,11 @@ emoji  = string(default=":telephone_receiver:")
 
 
 class SlackAsteriskConfig(object):  # pylint:disable=too-few-public-methods
+	# SECURITY NOTE: The config file at /etc/slack-asterisk.conf may contain
+	# sensitive credentials (client_id, client_secret). Ensure the file is
+	# readable only by the service user:
+	#   chown root:<service-user> /etc/slack-asterisk.conf
+	#   chmod 640 /etc/slack-asterisk.conf
 	def __init__(self, configfile="/etc/slack-asterisk.conf"):
 		config_spec_parsed = configobj.ConfigObj(CONFIG_SPEC_SOURCE.format().splitlines(), list_values=False)
 
