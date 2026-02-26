@@ -2,4 +2,5 @@
 .idea
 .vagrant
 .venv/
-
+.claude/
+slack_asterisk.egg-info/
